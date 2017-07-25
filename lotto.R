@@ -8,12 +8,12 @@ library(ggmap)
 library(ggthemes)
 library(scales)
 
+#Load & Clean Some of the raw-data
 lotto = fread(file = '~/data/test_crawl.csv')
 lotto.df = fread(file = '~/data/cleaned_lotto.csv')
 towns_latlon = fread(file = '~/data/towns.csv')
 lotto.df$prize = as.numeric(gsub("[\\,]", "", lotto.df$prize))
 pop_town = fread(file = '~/data/pop_towns2015.csv')
-
 pop_geo = fread(file = '~/data/pop_geo.csv')
 
 retail_locale = lotto %>% 
@@ -24,34 +24,46 @@ retail_locale = lotto %>%
 retail_locale$retailer_location = paste(retail_locale$retailer_location, "CT", sep=", ")
 towns = bind_cols(retail_locale, towns_latlon)
 
+#Use 'geocode' to get the lats/longs for each town &save so we dont call the API everytime
 #get_geo = geocode(retail_locale$retailer_location)
+
+#Add a commma after town, so geocode knows the town is for CT
 #pop_town$Town = paste(pop_town$Town, "CT", sep=", ")
 #geo_popgeo = geocode(pop_town$Town)
 
-sapply(lotto.df, class)
-
+#bind DataFrames: CT towns Population with CT towns Lat/long coordinates 
 town_pop = bind_cols(pop_town, pop_geo)
+
+#check the classes for each variable in the dataset we'll be using:
+sapply(lotto.df, class)
+sapply(town_pop, class)
+#convert "population" from character to numeric:
 town_pop$`Est. Pop.` = as.numeric(gsub("[\\,]", "", town_pop$`Est. Pop.`))
 
 
 
+
+
+######---DATA VISUALIZATION--#######
+
+#Leaflet map to show CT population density (from towns that had winners)
 lf = leaflet(town_pop) %>% addTiles() %>%
   addCircles(lng = ~lon, lat = ~lat, weight = 1,
              radius = ~sqrt(town_pop$`Est. Pop.`) * 30, popup = ~Town)
 
 
-inter= left_join(retail_locale, pop_towns, by=c("retailer_location"='Town')) #take out the CT in retail_locale to join
+#inter= left_join(retail_locale, pop_towns, by=c("retailer_location"='Town')) #take out the CT in retail_locale to join
 
-
-
+#Leaflet map to visualize which towns people are winning the most:
 Mapwinners_all= leaflet(towns) %>% 
   addTiles() %>% 
   addCircles(lng = ~lon, lat= ~lat, weight=1,
              radius = ~sqrt(count) *1500, popup= ~retailer_location)
 
+#Towns with 20 or more winners:
 Mapwinners_top20 = towns %>% 
   filter(count >= 20)
-
+#Visualized:
 leaflet(Mapwinners_top20) %>% 
   addTiles() %>% 
   addCircles(lng = ~lon, lat= ~lat, weight=1,
